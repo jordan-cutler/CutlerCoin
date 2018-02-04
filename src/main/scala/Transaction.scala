@@ -1,7 +1,6 @@
 import java.security.{PrivateKey, PublicKey}
 
-import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
+import Transaction._
 
 case class Transaction(
   sender: PublicKey,
@@ -10,8 +9,10 @@ case class Transaction(
   signature: Array[Byte],
   inputs: List[TransactionInput]
 ) {
+
   var transactionHash: String = calculateTransactionHash()
-  val outputs: ArrayBuffer[TransactionOutput] = mutable.ArrayBuffer[TransactionOutput]()
+  private val inputsValue = if (inputs != null) getInputsValue else 0d
+  var outputs: List[TransactionOutput] = generateTransactionOutputs(inputsValue, amount)
 
   def calculateTransactionHash(): String = {
     Transaction.transactionCounter.incrementCounter
@@ -33,30 +34,13 @@ case class Transaction(
       println("Transaction signature failed to verify")
       return false
     }
-    val inputsValue = getInputsValue
     if (inputsValue < CutlerChain.MinimumTransaction) {
       println("Transaction Inputs too small: " + inputsValue)
       return false
     }
-    def generateTransactionOutputs(): Unit = {
-      val leftOver = inputsValue - amount
-      outputs.append(
-        TransactionOutput(recipient, amount, transactionHash),
-        TransactionOutput(sender, leftOver, transactionHash)
-      )
-    }
 
-    def addOutputsToUnspentList(): Unit = {
-      outputs.foreach(output => CutlerChain.UTXOs.put(output.id, output))
-    }
-
-    def removeInputsFromUnspentList(): Unit = {
-      inputs.foreach(input => CutlerChain.UTXOs.remove(input.transactionOutputId))
-    }
-
-    generateTransactionOutputs()
-    addOutputsToUnspentList()
-    removeInputsFromUnspentList()
+    addOutputsToUnspentList(outputs)
+    removeInputsFromUnspentList(inputs)
 
     true
   }
@@ -68,6 +52,22 @@ case class Transaction(
   def getOutputsValue: Double = {
     outputs.foldLeft(0d)((acc, current) => acc + current.amount)
   }
+
+  private def generateTransactionOutputs(inputsValue: Double, amount: Double): List[TransactionOutput] = {
+    val leftOver = inputsValue - amount
+    List(
+      TransactionOutput(
+        recipient = recipient,
+        amount = amount,
+        transactionHashOutputWasCreatedIn = transactionHash
+      ),
+      TransactionOutput(
+        recipient = sender,
+        amount = leftOver,
+        transactionHashOutputWasCreatedIn = transactionHash
+      )
+    )
+  }
 }
 
 object Transaction {
@@ -76,5 +76,13 @@ object Transaction {
   def generateSignature(privateKey: PrivateKey, sender: PublicKey, recipient: PublicKey, amount: Double): Array[Byte] = {
     val data = StringUtil.getStringFromKey(sender) + StringUtil.getStringFromKey(recipient) + String.valueOf(amount)
     StringUtil.applyECDSASig(privateKey, data)
+  }
+
+  private def addOutputsToUnspentList(outputs: List[TransactionOutput]): Unit = {
+    outputs.foreach(output => CutlerChain.UTXOs.put(output.id, output))
+  }
+
+  private def removeInputsFromUnspentList(inputs: List[TransactionInput]): Unit = {
+    inputs.foreach(input => CutlerChain.UTXOs.remove(input.transactionOutputId))
   }
 }

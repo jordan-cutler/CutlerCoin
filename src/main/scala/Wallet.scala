@@ -29,17 +29,6 @@ case class Wallet() {
       return null
     }
 
-    def generateTransactionInputs(): List[TransactionInput] = {
-      balanceWithUnspentTransactions.unspentTransactions.values.foldLeft((0d, List[TransactionInput]()))(
-        (accum, transactionOutput) => {
-          if (accum._1 > amount) return accum._2
-          (accum._1 + transactionOutput.amount, TransactionInput(transactionOutput.id) :: accum._2)
-        }
-      )
-    }._2
-
-    val inputs: List[TransactionInput] = generateTransactionInputs()
-
     Transaction(
       sender = publicKey,
       recipient = recipient,
@@ -47,9 +36,18 @@ case class Wallet() {
       Transaction.generateSignature(
         privateKey, publicKey, recipient, amount
       ),
-      inputs
+      generateTransactionInputs(balanceWithUnspentTransactions, amount)
     )
   }
+
+  private def generateTransactionInputs(balanceWithUnspentTransactions: BalanceWithUnspentTransactions, amount: Double): List[TransactionInput] = {
+    balanceWithUnspentTransactions.unspentTransactions.values.foldLeft((0d, List[TransactionInput]()))(
+      (accum, transactionOutput) => {
+        if (accum._1 > amount) return accum._2
+        (accum._1 + transactionOutput.amount, TransactionInput(transactionOutput.id) :: accum._2)
+      }
+    )
+  }._2
 
   private def getBalanceAndUnspentTransactions: BalanceWithUnspentTransactions = {
     CutlerChain.UTXOs.keys.foldLeft(BalanceWithUnspentTransactions(0d, Map[String, TransactionOutput]()))(

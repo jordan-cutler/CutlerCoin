@@ -35,14 +35,12 @@ object CutlerChain {
       null
     )
     genesisTransaction.transactionHash = "0"
-    genesisTransaction.outputs.append(
-      TransactionOutput(
-        recipient = genesisTransaction.recipient,
-        genesisTransaction.amount,
-        genesisTransaction.transactionHash
-      )
-    )
-    CutlerChain.UTXOs.put(genesisTransaction.outputs(0).id, genesisTransaction.outputs(0))
+    genesisTransaction.outputs = List(TransactionOutput(
+      recipient = genesisTransaction.recipient,
+      amount = genesisTransaction.amount,
+      transactionHashOutputWasCreatedIn = genesisTransaction.transactionHash
+    ))
+    CutlerChain.UTXOs.put(genesisTransaction.outputs.head.id, genesisTransaction.outputs.head)
 
     println("Creating and mining genesis block...")
     val genesisBlock = Block("0")
@@ -94,11 +92,13 @@ object CutlerChain {
   }
 
   def isChainValid: Boolean = {
-    for (i <- 1 until blockChain.size) {
-      val currentBlock = blockChain(i)
-      val previousBlock = blockChain(i - 1)
+    val blockChainIterator = blockChain.iterator.sliding(2)
 
-      val blockIsValid = blockHashEqualsBlockHashCalculation(currentBlock) &&
+    blockChainIterator.forall { previousAndCurrentBlock =>
+      val previousBlock = previousAndCurrentBlock.head
+      val currentBlock = previousAndCurrentBlock.last
+
+      blockHashEqualsBlockHashCalculation(currentBlock) &&
         previousBlockHashEqualsCurrentBlocksPreviousHash(previousBlock, currentBlock) &&
         blockHasHashTarget(currentBlock) &&
         currentBlock.transactions.forall { transaction =>
@@ -108,10 +108,7 @@ object CutlerChain {
             firstTransactionOutputToTransactionRecipient(transaction) &&
             secondTransactionOutputToSender(transaction)
         }
-
-      if (!blockIsValid) return false
     }
-    true
   }
 
   def blockHashEqualsBlockHashCalculation(block: Block): Boolean = {
@@ -156,7 +153,7 @@ object CutlerChain {
 
   def transactionInputsReferencePreviousOutputsCorrectly(transaction: Transaction): Boolean = {
     val mapWithGenesisTransaction = mutable.Map(
-      genesisTransaction.outputs(0).id -> genesisTransaction.outputs(0)
+      genesisTransaction.outputs.head.id -> genesisTransaction.outputs.head
     )
     val tempUTXOs =
       transaction.outputs.foldLeft(mapWithGenesisTransaction)(
@@ -183,7 +180,7 @@ object CutlerChain {
   }
 
   def firstTransactionOutputToTransactionRecipient(transaction: Transaction): Boolean = {
-    if (transaction.outputs(0).recipient == transaction.recipient) true
+    if (transaction.outputs.head.recipient == transaction.recipient) true
     else {
       println(s"Transaction(${transaction.transactionHash}) output recipient is not who it should be")
       false

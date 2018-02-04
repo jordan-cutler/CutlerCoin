@@ -49,9 +49,7 @@ object StringUtil {
 
     do {
       val treeLayer =
-        for (i <- 1 until previousTreeLayer.size)
-          yield applySha256(previousTreeLayer(i - 1) + applySha256(previousTreeLayer(i)))
-
+        for (i <- 1 until previousTreeLayer.size) yield applySha256(previousTreeLayer(i - 1) + applySha256(previousTreeLayer(i)))
       previousTreeLayer = treeLayer
     } while (previousTreeLayer.size > 1)
 

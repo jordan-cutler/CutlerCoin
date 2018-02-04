@@ -1,14 +1,14 @@
 import java.security.PublicKey
 
 case class TransactionOutput(
-  recipient: PublicKey, // new owner
+  recipient: PublicKey,
   amount: Double,
-  parentTransactionHash: String // id of the transaction this output was created in
+  transactionHashOutputWasCreatedIn: String
 ) {
   val id: String = StringUtil.applySha256(
     StringUtil.getStringFromKey(recipient) +
       String.valueOf(amount) +
-      parentTransactionHash
+      transactionHashOutputWasCreatedIn
   )
 
   def isMine(publicKey: PublicKey): Boolean = publicKey.equals(recipient)
