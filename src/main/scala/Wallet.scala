@@ -23,8 +23,8 @@ case class Wallet() {
   def getBalance: Double = getBalanceAndUnspentTransactions.balance
 
   def sendFunds(recipient: PublicKey, amount: Double): Transaction = {
-    val balanceWithUnspentTransactions = getBalanceAndUnspentTransactions
-    if (balanceWithUnspentTransactions.balance < amount) {
+    val balanceAndUnspentTransactionsPair = getBalanceAndUnspentTransactions
+    if (balanceAndUnspentTransactionsPair.balance < amount) {
       println("Not enough funds to send transaction. Transaction discarded.")
       return null
     }
@@ -36,12 +36,12 @@ case class Wallet() {
       Transaction.generateSignature(
         privateKey, publicKey, recipient, amount
       ),
-      generateTransactionInputs(balanceWithUnspentTransactions, amount)
+      generateTransactionInputs(balanceAndUnspentTransactionsPair, amount)
     )
   }
 
-  private def generateTransactionInputs(balanceWithUnspentTransactions: BalanceWithUnspentTransactions, amount: Double): List[TransactionInput] = {
-    balanceWithUnspentTransactions.unspentTransactions.values.foldLeft((0d, List[TransactionInput]()))(
+  private def generateTransactionInputs(balanceAndUnspentTransactionsPair: BalanceAndUnspentTransactionsPair, amount: Double): List[TransactionInput] = {
+    balanceAndUnspentTransactionsPair.unspentTransactions.values.foldLeft((0d, List[TransactionInput]()))(
       (accum, transactionOutput) => {
         if (accum._1 > amount) return accum._2
         (accum._1 + transactionOutput.amount, TransactionInput(transactionOutput.id) :: accum._2)
@@ -49,12 +49,12 @@ case class Wallet() {
     )
   }._2
 
-  private def getBalanceAndUnspentTransactions: BalanceWithUnspentTransactions = {
-    CutlerChain.UTXOs.keys.foldLeft(BalanceWithUnspentTransactions(0d, Map[String, TransactionOutput]()))(
-      (accum: BalanceWithUnspentTransactions, unspentTransactionHash: String) =>
+  private def getBalanceAndUnspentTransactions: BalanceAndUnspentTransactionsPair = {
+    CutlerChain.UTXOs.keys.foldLeft(BalanceAndUnspentTransactionsPair(0d, Map[String, TransactionOutput]()))(
+      (accum: BalanceAndUnspentTransactionsPair, unspentTransactionHash: String) =>
         CutlerChain.UTXOs.get(unspentTransactionHash).map { output =>
           if (output.isMine(publicKey)) {
-            BalanceWithUnspentTransactions(accum.balance + output.amount, accum.unspentTransactions + (unspentTransactionHash -> output))
+            BalanceAndUnspentTransactionsPair(accum.balance + output.amount, accum.unspentTransactions + (unspentTransactionHash -> output))
           }
           else accum
         }.getOrElse(accum)
@@ -62,5 +62,5 @@ case class Wallet() {
   }
 }
 
-case class BalanceWithUnspentTransactions(balance: Double, unspentTransactions: Map[String, TransactionOutput])
+case class BalanceAndUnspentTransactionsPair(balance: Double, unspentTransactions: Map[String, TransactionOutput])
 

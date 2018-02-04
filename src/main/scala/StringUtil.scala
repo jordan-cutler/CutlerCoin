@@ -46,10 +46,11 @@ object StringUtil {
 
   def getMerkleRoot(transactions: List[Transaction]): String = {
     var previousTreeLayer: IndexedSeq[String] = transactions.map(_.transactionHash).toIndexedSeq
-
     do {
       val treeLayer =
-        for (i <- 1 until previousTreeLayer.size) yield applySha256(previousTreeLayer(i - 1) + applySha256(previousTreeLayer(i)))
+        for (left <- previousTreeLayer.indices by 2; right = Math.min(left + 1, previousTreeLayer.size - 1))
+        yield applySha256(previousTreeLayer(left) + previousTreeLayer(right))
+
       previousTreeLayer = treeLayer
     } while (previousTreeLayer.size > 1)
 
